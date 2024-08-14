@@ -1,0 +1,89 @@
+.chatContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  justify-content: space-between;
+  padding: 20px;
+  background-color: #1e1e2f;
+  color: white;
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: #2e2e3e;
+  border-bottom: 1px solid #3e3e4e;
+}
+
+.signOutButton {
+  background-color: #ff5555;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.chatBox {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  background-color: #2e2e3e;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #3e3e4e;
+}
+
+.userMessage,
+.botMessage {
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  max-width: 70%;
+}
+
+.userMessage {
+  text-align: right;
+  /* Align user messages to the right */
+  background-color: #4caf50;
+  /* Green background for user messages */
+  color: white;
+  /* White text for user messages */
+  margin-left: auto;
+  /* Push user messages to the right */
+}
+
+.botMessage {
+  text-align: left;
+  /* Align bot messages to the left */
+  background-color: #555770;
+  /* Darker background for bot messages */
+  color: white;
+  /* White text for bot messages */
+  margin-right: auto;
+  /* Push bot messages to the left */
+}
+
+.input {
+  padding: 15px;
+  font-size: 1rem;
+  border-radius: 10px;
+  border: 1px solid #3e3e4e;
+  background-color: #2e2e3e;
+  color: white;
+  outline: none;
+  width: 100%;
+}
+
+.sendButton {
+  padding: 15px;
+  font-size: 1rem;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  width: 100%;
+}
