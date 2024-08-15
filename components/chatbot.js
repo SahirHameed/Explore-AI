@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import styles from "./chatbot.module.css";
 import { auth } from "../utils/firebase";
 import { useRouter } from "next/navigation";
@@ -6,16 +8,23 @@ import { useRouter } from "next/navigation";
 export default function ChatBot() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState(() => {
-    // Load messages from localStorage
     const savedMessages = localStorage.getItem("chatMessages");
     return savedMessages ? JSON.parse(savedMessages) : [];
   });
-  const [isLoading, setIsLoading] = useState(false); // Add a loading state for feedback
-  const [location, setLocation] = useState(null); // State to store user location
+  const [isLoading, setIsLoading] = useState(false);
+  const [location, setLocation] = useState(null);
   const router = useRouter();
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    // Get the user's location when the chat starts
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -30,78 +39,66 @@ export default function ChatBot() {
       );
     }
 
-    // Save messages to localStorage whenever they change
     localStorage.setItem("chatMessages", JSON.stringify(messages));
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input) return;
+    if (!input.trim() || isLoading) return;
+    setIsLoading(true);
 
-    const userMessage = input; // Store the user's message
-    setInput(""); // Clear the input field immediately
+    const userMessage = input.trim();
+    setInput("");
 
-    // Add user's message to the chat and create a placeholder for the assistant's response
     setMessages((prevMessages) => [
       ...prevMessages,
-      { sender: "user", text: userMessage }, // Change "role" to "sender" for consistency
-      { sender: "bot", text: "" }, // Placeholder for the assistant's response
+      { sender: "user", text: userMessage },
+      { sender: "bot", text: "" },
     ]);
 
     try {
-      // Send the message to your API or OpenAI endpoint
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify([
-          ...messages,
-          { sender: "user", content: userMessage }, // Use "sender" consistently
-        ]),
+        body: JSON.stringify({
+          message: userMessage,
+          location,
+        }),
       });
 
-      // Read the response stream
+      if (!response.ok) throw new Error("Network response was not ok");
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
       let botResponse = "";
-      const processText = async ({ done, value }) => {
-        if (done) return botResponse;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        // Decode the streamed chunk of data
-        const text = decoder.decode(value || new Uint8Array(), {
-          stream: true,
-        });
+        const text = decoder.decode(value, { stream: true });
         botResponse += text;
 
-        // Update the assistant's response as it streams in
         setMessages((prevMessages) => {
-          let lastMessage = prevMessages[prevMessages.length - 1]; // Get the last message (assistant's placeholder)
-          let otherMessages = prevMessages.slice(0, prevMessages.length - 1); // Get all previous messages
-          return [
-            ...otherMessages,
-            { ...lastMessage, text: botResponse }, // Append the streamed text to the assistant's message
-          ];
+          let lastMessage = prevMessages[prevMessages.length - 1];
+          let otherMessages = prevMessages.slice(0, prevMessages.length - 1);
+          return [...otherMessages, { ...lastMessage, text: botResponse }];
         });
-
-        return reader.read().then(processText);
-      };
-
-      await reader.read().then(processText);
+      }
     } catch (error) {
       console.error("Error receiving message:", error);
       setMessages((prevMessages) => [
-        ...prevMessages.slice(0, prevMessages.length - 1), // Remove the placeholder
+        ...prevMessages.slice(0, prevMessages.length - 1),
         {
           sender: "bot",
           text: "Oops! Something went wrong. Please try again.",
         },
       ]);
+    } finally {
+      setIsLoading(false);
     }
   };
-
-
-
 
   const handleSignOut = async () => {
     await auth.signOut();
@@ -112,6 +109,16 @@ export default function ChatBot() {
     <div className={styles.chatContainer}>
       <div className={styles.topBar}>
         <div>Explore-AI Chat</div>
+        <div className={styles.locationInfo}>
+          {location ? (
+            <span>
+              Location: {location.latitude.toFixed(2)},{" "}
+              {location.longitude.toFixed(2)}
+            </span>
+          ) : (
+            <span>Fetching location...</span>
+          )}
+        </div>
         <button onClick={handleSignOut} className={styles.signOutButton}>
           Sign Out
         </button>
@@ -127,9 +134,7 @@ export default function ChatBot() {
             {msg.text}
           </div>
         ))}
-        {isLoading && (
-          <div className={styles.botMessage}>Explore-AI is typing...</div>
-        )}
+        <div ref={messagesEndRef} />
       </div>
       <input
         className={styles.input}
@@ -140,7 +145,7 @@ export default function ChatBot() {
         onKeyDown={(e) => e.key === "Enter" && sendMessage()}
       />
       <button className={styles.sendButton} onClick={sendMessage}>
-        Send
+        {isLoading ? "Sending..." : "Send"}
       </button>
     </div>
   );

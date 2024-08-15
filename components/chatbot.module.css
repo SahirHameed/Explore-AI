@@ -17,6 +17,12 @@
   border-bottom: 1px solid #3e3e4e;
 }
 
+.locationInfo {
+  font-size: 0.9rem;
+  color: #aaaaaa;
+  margin-right: 20px;
+}
+
 .signOutButton {
   background-color: #ff5555;
   color: white;
@@ -34,42 +40,38 @@
   border-radius: 10px;
   margin-bottom: 10px;
   border: 1px solid #3e3e4e;
+  display: flex;
+  flex-direction: column;
 }
 
 .userMessage,
 .botMessage {
-  padding: 10px;
-  border-radius: 10px;
+  padding: 10px 15px;
+  border-radius: 20px;
   margin-bottom: 10px;
   max-width: 70%;
+  word-wrap: break-word;
+  font-size: 1rem;
 }
 
 .userMessage {
-  text-align: right;
-  /* Align user messages to the right */
+  text-align: left;
   background-color: #4caf50;
-  /* Green background for user messages */
   color: white;
-  /* White text for user messages */
   margin-left: auto;
-  /* Push user messages to the right */
 }
 
 .botMessage {
   text-align: left;
-  /* Align bot messages to the left */
   background-color: #555770;
-  /* Darker background for bot messages */
   color: white;
-  /* White text for bot messages */
   margin-right: auto;
-  /* Push bot messages to the left */
 }
 
 .input {
   padding: 15px;
   font-size: 1rem;
-  border-radius: 10px;
+  border-radius: 20px;
   border: 1px solid #3e3e4e;
   background-color: #2e2e3e;
   color: white;
@@ -83,7 +85,7 @@
   background-color: #4caf50;
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 20px;
   cursor: pointer;
   width: 100%;
 }
