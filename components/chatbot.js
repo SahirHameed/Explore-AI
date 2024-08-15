@@ -25,13 +25,32 @@ export default function ChatBot() {
   }, [messages]);
 
   useEffect(() => {
+    const getLocationName = async (lat, lng) => {
+      try {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+        );
+        const data = await response.json();
+        if (data.results.length > 0) {
+          const result = data.results[0];
+          const components = result.address_components;
+          const city = components.find((c) => c.types.includes("locality"));
+          const state = components.find((c) =>
+            c.types.includes("administrative_area_level_1")
+          );
+          return `${city.long_name}, ${state.short_name}`;
+        }
+      } catch (error) {
+        console.error("Error fetching location name:", error);
+        return "Unknown Location";
+      }
+    };
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocation(await getLocationName(latitude, longitude));
         },
         (error) => {
           console.error("Error fetching location:", error);
@@ -62,7 +81,7 @@ export default function ChatBot() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message: userMessage,
+          messages: [...messages, { role: "user", content: userMessage }],
           location,
         }),
       });
@@ -111,10 +130,7 @@ export default function ChatBot() {
         <div>Explore-AI Chat</div>
         <div className={styles.locationInfo}>
           {location ? (
-            <span>
-              Location: {location.latitude.toFixed(2)},{" "}
-              {location.longitude.toFixed(2)}
-            </span>
+            <span>Location: {location}</span>
           ) : (
             <span>Fetching location...</span>
           )}
@@ -131,7 +147,13 @@ export default function ChatBot() {
               msg.sender === "user" ? styles.userMessage : styles.botMessage
             }
           >
-            {msg.text}
+            {msg.text &&
+              msg.text.split("\n").map((line, i) => (
+                <span key={i}>
+                  {line}
+                  <br />
+                </span>
+              ))}
           </div>
         ))}
         <div ref={messagesEndRef} />
