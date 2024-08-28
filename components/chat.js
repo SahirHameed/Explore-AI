@@ -2,19 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import styles from "./chatbot.module.css";
-import { auth } from "../utils/firebase";
+import { auth, db } from "../utils/firebase";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
-export default function ChatBot() {
+export default function ChatBot({ location }) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState(() => {
-    const savedMessages = localStorage.getItem("chatMessages");
-    return savedMessages ? JSON.parse(savedMessages) : [];
-  });
+  const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [location, setLocation] = useState(null);
   const router = useRouter();
   const messagesEndRef = useRef(null);
+  const user = auth.currentUser;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -25,41 +23,23 @@ export default function ChatBot() {
   }, [messages]);
 
   useEffect(() => {
-    const getLocationName = async (lat, lng) => {
-      try {
-        const response = await fetch(
-          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-        );
-        const data = await response.json();
-        if (data.results.length > 0) {
-          const result = data.results[0];
-          const components = result.address_components;
-          const city = components.find((c) => c.types.includes("locality"));
-          const state = components.find((c) =>
-            c.types.includes("administrative_area_level_1")
-          );
-          return `${city.long_name}, ${state.short_name}`;
+    const fetchChatHistory = async () => {
+      if (user) {
+        const chatDoc = await getDoc(doc(db, "chats", user.uid));
+        if (chatDoc.exists()) {
+          setMessages(chatDoc.data().messages);
         }
-      } catch (error) {
-        console.error("Error fetching location name:", error);
-        return "Unknown Location";
       }
     };
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          setLocation(await getLocationName(latitude, longitude));
-        },
-        (error) => {
-          console.error("Error fetching location:", error);
-        }
-      );
-    }
+    fetchChatHistory();
+  }, [user]);
 
-    localStorage.setItem("chatMessages", JSON.stringify(messages));
-  }, [messages]);
+  const saveChatHistory = async (updatedMessages) => {
+    if (user) {
+      await setDoc(doc(db, "chats", user.uid), { messages: updatedMessages });
+    }
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -68,11 +48,17 @@ export default function ChatBot() {
     const userMessage = input.trim();
     setInput("");
 
-    setMessages((prevMessages) => [
-      ...prevMessages,
+    // Add the user message to the messages array
+    const updatedMessages = [
+      ...messages,
       { sender: "user", text: userMessage },
-      { sender: "bot", text: "" },
-    ]);
+      { sender: "bot", text: "" }, // Add an empty bot message to start the typing effect
+    ];
+
+    setMessages(updatedMessages);
+    scrollToBottom();
+
+    saveChatHistory(updatedMessages);
 
     try {
       const response = await fetch("/api/chat", {
@@ -81,7 +67,7 @@ export default function ChatBot() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: [...messages, { role: "user", content: userMessage }],
+          messages: updatedMessages.slice(0, -1), // Send all messages except the empty bot message
           location,
         }),
       });
@@ -99,23 +85,44 @@ export default function ChatBot() {
         const text = decoder.decode(value, { stream: true });
         botResponse += text;
 
-        setMessages((prevMessages) => {
-          let lastMessage = prevMessages[prevMessages.length - 1];
-          let otherMessages = prevMessages.slice(0, prevMessages.length - 1);
-          return [...otherMessages, { ...lastMessage, text: botResponse }];
-        });
+        // Update the bot's message with the new text
+        const updatedMessagesWithTyping = updatedMessages.map((msg, i) =>
+          i === updatedMessages.length - 1 ? { ...msg, text: botResponse } : msg
+        );
+
+        setMessages(updatedMessagesWithTyping);
+        scrollToBottom();
       }
+
+      // Save the final bot response
+      saveChatHistory(updatedMessages);
     } catch (error) {
       console.error("Error receiving message:", error);
-      setMessages((prevMessages) => [
-        ...prevMessages.slice(0, prevMessages.length - 1),
+      const errorMessages = [
+        ...updatedMessages.slice(0, -1),
         {
           sender: "bot",
           text: "Oops! Something went wrong. Please try again.",
         },
-      ]);
+      ];
+      setMessages(errorMessages);
+      saveChatHistory(errorMessages);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+
+
+  const clearChat = async () => {
+    const confirmClear = window.confirm(
+      "Are you sure you want to clear the chat?"
+    );
+    if (confirmClear) {
+      setMessages([]);
+      if (user) {
+        await updateDoc(doc(db, "chats", user.uid), { messages: [] });
+      }
     }
   };
 
@@ -127,17 +134,15 @@ export default function ChatBot() {
   return (
     <div className={styles.chatContainer}>
       <div className={styles.topBar}>
-        <div>Explore-AI Chat</div>
-        <div className={styles.locationInfo}>
-          {location ? (
-            <span>Location: {location}</span>
-          ) : (
-            <span>Fetching location...</span>
-          )}
+        <div className={styles.title}>Explore-AI Chat</div>
+        <div className={styles.buttonGroup}>
+          <button onClick={clearChat} className={styles.clearChatButton}>
+            Clear Chat
+          </button>
+          <button onClick={handleSignOut} className={styles.signOutButton}>
+            Sign Out
+          </button>
         </div>
-        <button onClick={handleSignOut} className={styles.signOutButton}>
-          Sign Out
-        </button>
       </div>
       <div className={styles.chatBox}>
         {messages.map((msg, index) => (

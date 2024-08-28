@@ -21,7 +21,6 @@ export default function LandingPage() {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-      router.push("/chatbot"); // Redirect to chatbot screen after login
     } catch (error) {
       console.error("Authentication error:", error);
     }
@@ -30,7 +29,6 @@ export default function LandingPage() {
   const handleGoogleSignIn = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-      router.push("/chatbot"); // Redirect to chatbot screen after Google login
     } catch (error) {
       console.error("Google sign-in error:", error);
     }

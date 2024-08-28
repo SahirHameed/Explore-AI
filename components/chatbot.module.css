@@ -17,19 +17,30 @@
   border-bottom: 1px solid #3e3e4e;
 }
 
-.locationInfo {
-  font-size: 0.9rem;
-  color: #aaaaaa;
-  margin-right: 20px;
+.title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
 }
 
-.signOutButton {
+.buttonGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.signOutButton,
+.clearChatButton {
   background-color: #ff5555;
   color: white;
   border: none;
   border-radius: 5px;
   padding: 5px 10px;
   cursor: pointer;
+}
+
+.clearChatButton {
+  background-color: #ff8c00;
 }
 
 .chatBox {
