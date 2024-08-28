@@ -9,17 +9,18 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@emotion/react": "^11.13.0",
+    "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@firebase/auth": "^1.7.7",
     "@firebase/firestore": "^4.7.0",
-    "@google/generative-ai": "^0.17.0",
+    "@google/generative-ai": "^0.17.1",
     "@mui/material": "^5.16.7",
     "dotenv": "^16.4.5",
-    "next": "^14.2.5",
-    "openai": "^4.55.7",
-    "react": "^18",
-    "react-dom": "^18",
+    "firebase": "^10.13.0",
+    "next": "^14.2.7",
+    "openai": "^4.56.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "web-streams-polyfill": "^4.0.0"
   },
   "devDependencies": {
