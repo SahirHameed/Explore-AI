@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "./chatbot.module.css";
 import { auth, db } from "../utils/firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth"; // Correct import
 
 export default function ChatBot({ location }) {
   const [input, setInput] = useState("");
@@ -12,7 +13,6 @@ export default function ChatBot({ location }) {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const messagesEndRef = useRef(null);
-  const user = auth.currentUser;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -22,25 +22,53 @@ export default function ChatBot({ location }) {
     scrollToBottom();
   }, [messages]);
 
+  // Handle authentication and redirection
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.replace("/"); // Redirect to landing page if not authenticated
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  // Fetch chat history
   useEffect(() => {
     const fetchChatHistory = async () => {
+      const user = auth.currentUser;
       if (user) {
-        const chatDoc = await getDoc(doc(db, "chats", user.uid));
-        if (chatDoc.exists()) {
-          setMessages(chatDoc.data().messages);
+        try {
+          const chatDoc = await getDoc(doc(db, "chats", user.uid));
+          if (chatDoc.exists()) {
+            setMessages(chatDoc.data().messages || []);
+          }
+        } catch (error) {
+          console.error("Failed to fetch chat history:", error);
+          if (error.code === "unavailable") {
+            alert(
+              "Firestore is currently unavailable. Please check your internet connection."
+            );
+          }
+          // Implement a retry mechanism if needed
+          setTimeout(fetchChatHistory, 5000); // Retry after 5 seconds
         }
       }
     };
 
     fetchChatHistory();
-  }, [user]);
+  }, []);
 
+
+  // Save chat history to Firestore
   const saveChatHistory = async (updatedMessages) => {
+    const user = auth.currentUser;
     if (user) {
       await setDoc(doc(db, "chats", user.uid), { messages: updatedMessages });
     }
   };
 
+  // Send message and handle AI response
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
     setIsLoading(true);
@@ -48,17 +76,16 @@ export default function ChatBot({ location }) {
     const userMessage = input.trim();
     setInput("");
 
-    // Add the user message to the messages array
     const updatedMessages = [
       ...messages,
       { sender: "user", text: userMessage },
-      { sender: "bot", text: "" }, // Add an empty bot message to start the typing effect
+      { sender: "bot", text: "" }, // Placeholder for bot response
     ];
 
     setMessages(updatedMessages);
     scrollToBottom();
 
-    saveChatHistory(updatedMessages);
+    saveChatHistory(updatedMessages); // Save message before AI response
 
     try {
       const response = await fetch("/api/chat", {
@@ -67,7 +94,7 @@ export default function ChatBot({ location }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: updatedMessages.slice(0, -1), // Send all messages except the empty bot message
+          messages: updatedMessages,
           location,
         }),
       });
@@ -85,21 +112,17 @@ export default function ChatBot({ location }) {
         const text = decoder.decode(value, { stream: true });
         botResponse += text;
 
-        // Update the bot's message with the new text
-        const updatedMessagesWithTyping = updatedMessages.map((msg, i) =>
+        const updatedMessagesWithResponse = updatedMessages.map((msg, i) =>
           i === updatedMessages.length - 1 ? { ...msg, text: botResponse } : msg
         );
 
-        setMessages(updatedMessagesWithTyping);
-        scrollToBottom();
+        setMessages(updatedMessagesWithResponse);
+        saveChatHistory(updatedMessagesWithResponse); // Save the complete AI response
       }
-
-      // Save the final bot response
-      saveChatHistory(updatedMessages);
     } catch (error) {
       console.error("Error receiving message:", error);
       const errorMessages = [
-        ...updatedMessages.slice(0, -1),
+        ...updatedMessages.slice(0, updatedMessages.length - 1),
         {
           sender: "bot",
           text: "Oops! Something went wrong. Please try again.",
@@ -112,23 +135,24 @@ export default function ChatBot({ location }) {
     }
   };
 
-
-
+  // Clear chat
   const clearChat = async () => {
     const confirmClear = window.confirm(
       "Are you sure you want to clear the chat?"
     );
     if (confirmClear) {
       setMessages([]);
+      const user = auth.currentUser;
       if (user) {
         await updateDoc(doc(db, "chats", user.uid), { messages: [] });
       }
     }
   };
 
+  // Sign out
   const handleSignOut = async () => {
     await auth.signOut();
-    router.push("/");
+    router.replace("/");
   };
 
   return (
