@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import styles from "./chatbot.module.css";
 import { auth, db } from "../utils/firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth"; // Correct import
+import { onAuthStateChanged } from "firebase/auth"; 
 
 export default function ChatBot({ location }) {
   const [input, setInput] = useState("");
